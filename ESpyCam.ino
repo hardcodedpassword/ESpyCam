@@ -1,3 +1,4 @@
+#include <HTTPClient.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include "esp_camera.h"
@@ -7,6 +8,9 @@
 #include "pinout.h"
 #include "secrets.h"
 
+
+#define MOTION_SEEN "http://192.168.2.217:8080/json.htm?type=command&param=switchlight&idx=290&switchcmd=On"
+#define MOTION_GONE "http://192.168.2.217:8080/json.htm?type=command&param=switchlight&idx=290&switchcmd=Off"
 
 #define CAMERA_MODEL_WROVER_KIT
 String ip; // device its IP address
@@ -22,6 +26,14 @@ UniversalTelegramBot bot(BOT_TOKEN, secured_client);
 //======================================================
 
 void startCameraServer();
+
+void sendHttp( const char* msg )
+{
+  HTTPClient http;
+  http.begin(msg);
+  int httpCode = http.GET();
+  Serial.println( httpCode );      
+}
 
 camera_fb_t *fb = NULL;
 uint8_t* fb_buffer;
@@ -71,10 +83,15 @@ void detectMotion()
   {
     if (motion == true)
     {
+      sendHttp(MOTION_SEEN);
       display.displayOn();
       photo();
       display.displayOff();
       bot.sendMessage(CHAT_ID, "Motion detected", "");
+    }
+    else
+    {
+      sendHttp(MOTION_GONE);
     }
     motionState = motion;
   }  
@@ -210,7 +227,6 @@ void setup()
     }
 
     secured_client.setCACert(TELEGRAM_CERTIFICATE_ROOT);
-
 
     Serial.println("Starting server...");
     delay(500);    
