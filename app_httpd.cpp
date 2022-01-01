@@ -55,8 +55,7 @@ static size_t jpg_encode_stream(void * arg, size_t index, const void* data, size
 static esp_err_t capture_handler(httpd_req_t *req){
     camera_fb_t * fb = NULL;
     esp_err_t res = ESP_OK;
-    int64_t fr_start = esp_timer_get_time();
-
+    
     fb = esp_camera_fb_get();
     if (!fb) {
         Serial.printf("Camera capture failed");
@@ -78,8 +77,6 @@ static esp_err_t capture_handler(httpd_req_t *req){
         fb_len = jchunk.len;
     }
     esp_camera_fb_return(fb);
-    int64_t fr_end = esp_timer_get_time();
-    Serial.printf("JPG: %uB %ums", (uint32_t)(fb_len), (uint32_t)((fr_end - fr_start)/1000));
     return res;
 }
 
@@ -90,11 +87,6 @@ static esp_err_t stream_handler(httpd_req_t *req){
     size_t _jpg_buf_len = 0;
     uint8_t * _jpg_buf = NULL;
     char * part_buf[64];
-
-    static int64_t last_frame = 0;
-    if(!last_frame) {
-        last_frame = esp_timer_get_time();
-    }
 
     res = httpd_resp_set_type(req, _STREAM_CONTENT_TYPE);
     if(res != ESP_OK){
@@ -144,7 +136,6 @@ static esp_err_t stream_handler(httpd_req_t *req){
         }
     }
 
-    last_frame = 0;
     return res;
 }
 

@@ -7,6 +7,8 @@
 #include "pinout.h"
 #include "secrets.h"
 
+
+#define CAMERA_MODEL_WROVER_KIT
 String ip; // device its IP address
 
 //============ Define OLED =============================
@@ -21,69 +23,34 @@ UniversalTelegramBot bot(BOT_TOKEN, secured_client);
 
 void startCameraServer();
 
-
 camera_fb_t *fb = NULL;
-bool dataAvailable = false;
+uint8_t* fb_buffer;
+size_t fb_length;
+size_t currentByte;
 
-bool isMoreDataAvailable()
-{
-  if (dataAvailable)
-  {
-    dataAvailable = false;
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+bool isMoreDataAvailable() {
+  return fb_length - currentByte;
 }
 
-byte *getNextBuffer()
-{
-  if (fb)
-  {
-    return fb->buf;
-  }
-  else
-  {
-    return nullptr;
-  }
-}
-
-int getNextBufferLen()
-{
-  if (fb)
-  {
-    return fb->len;
-  }
-  else
-  {
-    return 0;
-  }
+uint8_t photoNextByte() {
+  uint8_t b;
+  b = *(fb_buffer+currentByte);
+  currentByte++;
+  return b;
 }
 
 void photo()
 {
-    Serial.println("Photo!");
+  fb = esp_camera_fb_get();
+  currentByte = 0;
+  fb_length = fb->len;
+  fb_buffer = fb->buf;
 
-    fb = NULL;
-    // Take Picture with Camera
-    fb = esp_camera_fb_get();
-    if (!fb)
-    {
-      Serial.println("Camera capture failed");
-      bot.sendMessage(CHAT_ID, "Camera capture failed", "");
-      return;
-    }
-    dataAvailable = true;
-    Serial.println("Sending");
-    bot.sendPhotoByBinary(CHAT_ID, "image/jpeg", fb->len,
-                          isMoreDataAvailable, nullptr,
-                          getNextBuffer, getNextBufferLen);
+  bot.sendPhotoByBinary(CHAT_ID, "image/jpeg", fb->len, isMoreDataAvailable, photoNextByte, nullptr, nullptr);
 
-    Serial.println("done!");
-
-    esp_camera_fb_return(fb);  
+  esp_camera_fb_return(fb);
+  fb_length = 0;
+  fb_buffer = nullptr;
 }
 
 // Setup the required IO
@@ -105,15 +72,13 @@ void detectMotion()
     if (motion == true)
     {
       display.displayOn();
-      Serial.println("motion");
-      bot.sendMessage(CHAT_ID, "Motion", "");
       photo();
       display.displayOff();
+      bot.sendMessage(CHAT_ID, "Motion detected", "");
     }
     motionState = motion;
   }  
 }
-
 
 bool setupCamera()
 {
@@ -210,7 +175,6 @@ void setup()
     Serial.begin(115200);
     Serial.setDebugOutput(true);
     Serial.println();
-
 
     Serial.println("Setting up camera...");
     if ( !setupCamera() )
